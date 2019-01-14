@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "GridMap.h"
 
 GridMap::GridMap(int nX, int nY) {

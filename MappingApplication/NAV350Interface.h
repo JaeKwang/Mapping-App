@@ -44,6 +44,7 @@ ________________________________________________________________________________
 #include "PUtil.h"
 
 #pragma comment(lib, "ws2_32")
+#pragma warning(disable:4996) 
 
 using namespace std;
 

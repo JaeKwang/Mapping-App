@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "NAV350Interface.h"
 
 NAV350Interface::NAV350Interface(void)
