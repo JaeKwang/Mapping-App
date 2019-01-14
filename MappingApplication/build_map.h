@@ -7,7 +7,7 @@
 
 // 실제 저장되는 Grid Map의 크기
 #define MAP_WIDTH 4000
-#define MAP_HEIGHT 4000
+#define MAP_HEIGHT 3000
 
 #define CELL_SIZE 10			// 1 픽셀당 몇 mm일까요?
 #define MAX_PROBABILITY 0.8

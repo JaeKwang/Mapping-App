@@ -49,6 +49,7 @@ void BuildMap::drawLine(RobotPose RobotPos, double dDist, int nIndex, int nDegre
 
 	// Drawing
 	int** map = m_GridMap->getMap();
+
 	// 기울기 클때
 	if (dx >= dy) {
 		for (int i = 0; i < dx; i++) {

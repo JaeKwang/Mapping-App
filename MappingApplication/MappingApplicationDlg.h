@@ -6,8 +6,8 @@
 #include "stdafx.h"
 #include "afxwin.h"
 
-#define SCREEN_W 800
-#define SCREEN_H 800
+#define SCREEN_W 1920
+#define SCREEN_H 1080
 
 // CMappingApplicationDlg 대화 상자
 class CMappingApplicationDlg : public CDialogEx
@@ -19,12 +19,14 @@ public:
 	// ROBOT
 	RobotPose g_robotPos = RobotPose(0, 0, 0);
 	bool g_bActibate = true;
-	int g_nSpeed = 5;
+	int g_nSpeed = 20;
 
 	// MAP
 	Mat g_imgMap;
 	BuildMap g_mapBuilder;
 	int g_width, g_height;
+	vector<vector<int>> g_landmark; // Landmark
+	vector<vector<int>> g_nodePoint; // Landmark
 
 	// NAV
 	NAV350Interface * g_NAV350;
@@ -49,7 +51,10 @@ protected:
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
+	afx_msg void OnClickedCancel();
+	afx_msg void OnClickedSave();
 	DECLARE_MESSAGE_MAP()
+
 public:
 	CStatic m_picture;
 	afx_msg void OnDestroy();

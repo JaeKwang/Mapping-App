@@ -53,9 +53,10 @@ BEGIN_MESSAGE_MAP(CMappingApplicationDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_WM_DESTROY()
+	ON_BN_CLICKED(IDC_CANCEL, OnClickedCancel)
+	ON_BN_CLICKED(IDC_SAVE, OnClickedSave)
 	ON_WM_TIMER()
 END_MESSAGE_MAP()
-
 BOOL CMappingApplicationDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
@@ -85,10 +86,10 @@ BOOL CMappingApplicationDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// 큰 아이콘을 설정합니다.
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
-	ShowWindow(SW_SHOWMAXIMIZED);
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
-
-	g_imgMap = Mat(SCREEN_W, SCREEN_H, CV_8UC3);
+	ShowWindow(SW_SHOWMAXIMIZED);
+	
+	g_imgMap = Mat(SCREEN_H, SCREEN_W, CV_8UC3);
 	g_mapBuilder = BuildMap();
 	g_width = g_mapBuilder.getWidth();
 	g_height = g_mapBuilder.getHeight();
@@ -97,7 +98,6 @@ BOOL CMappingApplicationDlg::OnInitDialog()
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
-
 void CMappingApplicationDlg::OnSysCommand(UINT nID, LPARAM lParam)
 {
 	if ((nID & 0xFFF0) == IDM_ABOUTBOX)
@@ -141,10 +141,8 @@ HCURSOR CMappingApplicationDlg::OnQueryDragIcon()
 void CMappingApplicationDlg::OnDestroy()
 {
 	CDialogEx::OnDestroy();
-
 	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
 }
-
 int CMappingApplicationDlg::getDistanceFromRobot(Mat map, int nDegree, int nDegreeResolution) {
 	int cellSize = 50;
 	int width = map.cols;
@@ -234,8 +232,8 @@ void CMappingApplicationDlg::OnTimer(UINT_PTR nIDEvent)
 	int** map = g_mapBuilder.getMap();
 	for (int i = 0; i < SCREEN_W; i++)
 		for (int j = 0; j < SCREEN_H; j++) {
-			int Lx = int(i*g_width / SCREEN_W);
-			int Ly = int(j*g_height / SCREEN_H);
+			int Lx = int(i*MAP_WIDTH / SCREEN_W);
+			int Ly = int(j*MAP_HEIGHT / SCREEN_H);
 			if (map[Lx][Ly] == FREE_AREA)
 				g_imgMap.at<Vec3b>(j, i) = Vec3b(255, 255, 255);
 			else if (map[Lx][Ly] == OCCUPIED_AREA)
@@ -245,8 +243,8 @@ void CMappingApplicationDlg::OnTimer(UINT_PTR nIDEvent)
 		}
 
 	// 로봇을 그립니다
-	int x_pos = int(g_robotPos.getX() / CELL_SIZE / (MAP_WIDTH / SCREEN_W) + SCREEN_W / 2);
-	int y_pos = int(g_robotPos.getY() / CELL_SIZE / (MAP_HEIGHT / SCREEN_H) + SCREEN_H / 2);
+	int x_pos = int(g_robotPos.getX() * SCREEN_W / CELL_SIZE / MAP_WIDTH + SCREEN_W / 2);
+	int y_pos = int(g_robotPos.getY() * SCREEN_H / CELL_SIZE / MAP_HEIGHT + SCREEN_H / 2);
 	circle(g_imgMap, Point(x_pos, y_pos), 10, Scalar(255, 0, 0), -1);
 	line(g_imgMap, Point(x_pos, y_pos), Point(x_pos + int(cos(g_robotPos.getTheta()) * 30), y_pos + int(sin(g_robotPos.getTheta()) * 30)), Scalar(0, 0, 255), 5);
 
@@ -338,4 +336,51 @@ void CMappingApplicationDlg::OnTimer(UINT_PTR nIDEvent)
 	cimage_mfc.Destroy();
 
 	CDialogEx::OnTimer(nIDEvent);
+}
+void CMappingApplicationDlg::OnClickedCancel() {
+	if (MessageBox(_T("프로그램을 종료하시겠습니까?"), _T("Mapping App"), MB_YESNO) == IDYES) {
+		OnCancel();
+		OnDestroy();
+	}
+}
+void CMappingApplicationDlg::OnClickedSave() {
+	int width = g_mapBuilder.getWidth();
+	int height = g_mapBuilder.getHeight();
+	Mat img(height, width, CV_8UC1);
+	int ** map = g_mapBuilder.getMap();
+	for (int i = 0; i < width; i++)
+		for (int j = 0; j < height; j++) {
+			if (map[i][j] == FREE_AREA)
+				img.at<uint8_t>(j, i) = 255;
+			else if (map[i][j] == OCCUPIED_AREA)
+				img.at<uint8_t>(j, i) = 0;
+			else if (map[i][j] == UNKNOWN_AREA)
+				img.at<uint8_t>(j, i) = 128;
+		}
+	imwrite("./citeMap.png", img);
+	
+	ofstream landmarkOut("landmark.txt");
+	ofstream nodeOut("nodepoint.txt");
+	if (landmarkOut.is_open()) {
+		landmarkOut << g_landmark.size();
+		for (int i = 0; i < g_landmark.size(); i++) {
+			vector<int> line = g_landmark[i];
+			for (int j = 0; j < line.size(); j++) {
+				landmarkOut << line[j];
+				landmarkOut << ", ";
+			}
+			landmarkOut << endl;
+		}
+	}
+	if (nodeOut.is_open()) {
+		nodeOut << g_nodePoint.size();
+		for (int i = 0; i < g_nodePoint.size(); i++) {
+			vector<int> line = g_nodePoint[i];
+			for (int j = 0; j < line.size(); j++) {
+				nodeOut << line[j];
+				nodeOut << ", ";
+			}
+			nodeOut << endl;
+		}
+	}
 }
