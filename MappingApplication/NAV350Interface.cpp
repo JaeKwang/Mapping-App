@@ -36,7 +36,7 @@ bool NAV350Interface::NAV350_Connect(SOCKET * pSocket, char *szAddr, int port)
 	// IP address, and port of the server to be connected to.
 	sockaddr_in clientService; 
 	clientService.sin_family = AF_INET;
-	clientService.sin_addr.s_addr = inet_addr( szAddr );
+//	clientService.sin_addr.s_addr = inet_addr( szAddr );
 	clientService.sin_port = htons( port );
 
 	//----------------------

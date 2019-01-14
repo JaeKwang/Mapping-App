@@ -35,9 +35,14 @@
 
 
 #include "opencv2\opencv.hpp"
+#include "build_map.h"
+#include "NAV350Interface.h"
+#include <iostream>  
+#include <string> 
+#include <ctime>
 
 using namespace cv;
-
+using namespace std;
 
 
 
