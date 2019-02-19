@@ -1,12 +1,12 @@
 /*______________________________________________________________________________________________
-PROJECT : Intelligent Robotics Lab. Department of Mechanical Engineering Korea University                                    
-(c) Copyright 2013 KUME Intelligent Robotics Lab.                                             
-All rights reserved                                                                         
-$Directed by Jae-Bok Song                                                                     
-$Designed by Dong-Il Kim                                                                
+PROJECT : Intelligent Robotics Lab. Department of Mechanical Engineering Korea University
+(c) Copyright 2013 KUME Intelligent Robotics Lab.
+All rights reserved
+$Directed by Jae-Bok Song
+$Designed by Dong-Il Kim
 $Description : SICK NAV350(Omnidirectional Laser rangefinder able to recognize reflectors) operating code
-$Data: 2013/11                                                                          
-$Author: Dong-Il Kim                                                                   
+$Data: 2013/11
+$Author: Dong-Il Kim
 ______________________________________________________________________________________________*/
 
 #define SICK_LIDAR_STX 0x02
@@ -16,25 +16,11 @@ ________________________________________________________________________________
 #define SICK_MAX_RCV_BUFF		20480
 #define SICK_HALF_BYTE_SIZE_IN_BIT	4
 
+#define NAV_SEND_MAX	64
 #define USE_REAR_LASER		0
 #define NAV350_SCAN_FREQ	50
 
-#define SICK_LMS100_WINSOCK_INIT	1
-
-#define SICK_NAV350_FRONT_ADDR "192.168.30.100"
-//#define SICK_NAV350_FRONT_ADDR "163.152.55.3"
-//#define SICK_NAV350_FRONT_ADDR "192.168.60.189"
-//#define SICK_NAV350_FRONT_ADDR "192.168.0.47"
-#define SICK_NAV350_FRONT_PORT 2111
-
-#define SICK_NAV350_FRONT_ADDR "192.168.30.100"
-//#define SICK_NAV350_REAR_ADDR "163.152.55.3"
-//#define SICK_NAV350_REAR_ADDR "192.168.60.189"
-//#define SICK_NAV350_FRONT_ADDR "192.168.0.47"
-#define SICK_NAV350_REAR_PORT 2112
-
 #define SICK_LMS100_MAX_QUERY_COUNT 120
-#define _WINSOCK_DEPRECATED_NO_WARNINGS
 
 #pragma once
 
@@ -44,7 +30,6 @@ ________________________________________________________________________________
 #include "PUtil.h"
 
 #pragma comment(lib, "ws2_32")
-#pragma warning(disable:4996) 
 
 using namespace std;
 
@@ -69,7 +54,6 @@ public:
 	~NAV350Interface(void);
 
 private:
-	WSADATA lms_wsad;
 	list<LandmarkData> m_Landmark;
 	int_1DArray m_nRobotPose;
 	int_1DArray m_nLaserData;
@@ -84,12 +68,12 @@ public:
 	bool NAV350_Connect(SOCKET * pSocket, char *szAddr, int port);
 	void NAV350_Disconnect(SOCKET * pSocket);
 
-/* Communication */
+	/* Communication */
 
 	bool NAV350_send_comm_msg(SOCKET * pSocket, char * szmsg, int msg_len);
 	bool NAV350_recv_comm_msg(SOCKET * pSocket, char * psz_ret_msg, int max_msg_len, int * pret_msg_len);
 
-/* Setting & Read status */
+	/* Setting & Read status */
 
 	bool NAV350_Read_Deviceid(SOCKET * pSocket);
 	bool NAV350_Set_Currentlayer(SOCKET * pSocket, int nLayer);
@@ -111,33 +95,33 @@ public:
 	bool NAV350_Device_Reset(SOCKET * pSocket);
 	bool NAV350_Erase_Layout(SOCKET * pSocket, int nErase);
 	bool NAV350_Store_Layout_permanent(SOCKET * pSocket);
-/* STANDBY Mode */
+	/* STANDBY Mode */
 
-	bool NAV350_Add_Landmark(SOCKET * pSocket, int nNumLandmark, list <LandmarkData> Landmark);
+	bool NAV350_Add_Landmark(SOCKET * pSocket, int nNumLandmark, list<LandmarkData> Landmarks);
 	bool NAV350_Edit_Landmark(SOCKET * pSocket, int nNumLandmark, LandmarkData * Landmark);
 	bool NAV350_Delete_Landmark(SOCKET * pSocket, int nNumLandmark, LandmarkData * Landmark);
 	bool NAV350_Read_Landmark(SOCKET * pSocket, int nNumLandmark, LandmarkData * Landmark);
 
-/* MAPPING Mode */
+	/* MAPPING Mode */
 
 	int NAV350_Mapping(SOCKET * pSocket);
 
-/* NAVIGATION Mode */
+	/* NAVIGATION Mode */
 
 	bool NAV350_Position_Request(SOCKET * pSocket, bool bWait);
 	int NAV350_Position_Data_Request(SOCKET * pSocket, bool bWait, int nDataset);
 	bool NAV350_Set_CurrentPose(SOCKET * pSocket, int nx, int ny, int nheading);
 
-/* LANDMARK Mode */
+	/* LANDMARK Mode */
 
 	bool NAV350_Get_Landmark(SOCKET * pSocket, bool bWait, int nDataformat);
-	
-/* Parse */
-	char * NAV350_util_parse_hex_unsigned_int(char * pmsg, int size, unsigned int * pvalue);
-	char * NAV350_util_parse_hex_signed_int	 (char * pmsg, int size, int * pvalue);
-	char * NAV350_util_parse_hex_real	 (char * pmsg, int size, float * pvalue);
 
-/* Get Data */
+	/* Parse */
+	char * NAV350_util_parse_hex_unsigned_int(char * pmsg, int size, unsigned int * pvalue);
+	char * NAV350_util_parse_hex_signed_int(char * pmsg, int size, int * pvalue);
+	char * NAV350_util_parse_hex_real(char * pmsg, int size, float * pvalue);
+
+	/* Get Data */
 	int_1DArray getLaserData();
 	int_1DArray getRSSIData();
 	int_1DArray getRobotPose();

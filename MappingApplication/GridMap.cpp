@@ -16,6 +16,18 @@ GridMap::GridMap(int nX, int nY) {
 		for (int j = 0; j<m_height; j++)
 			m_Map[i][j] = UNKNOWN_AREA;
 }
+void GridMap::clearMap() {
+	// 2차원 배열을 초기화 합니다
+	for (int i = 0; i<m_width; i++)
+		for (int j = 0; j<m_height; j++)
+			m_Map[i][j] = UNKNOWN_AREA;
+}
+void GridMap::saveMapTemp() {
+	m_MapTemp = m_Map;
+}
+void GridMap::getMapTemp() {
+	m_Map = m_MapTemp;
+}
 GridMap::~GridMap() {
 	// Grid Map 메모리 해제
 	if (m_Map != nullptr) {

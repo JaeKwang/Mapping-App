@@ -5,14 +5,11 @@
 @brief Korean: 베이즈룰에 따른 확률값 업데이트 함수
 @brief English:
 */
-RobotPose::RobotPose(double dX, double dY, double dTheta) {
-	m_x = dX;
-	m_y = dY;
-	m_theta = dTheta;
+RobotPose::RobotPose(int dX, int dY, double dTheta) {
+	x = dX;
+	y = dY;
+	theta = dTheta;
 }
-double RobotPose::getX() {	return m_x;}
-double RobotPose::getY() {	return m_y;}
-double RobotPose::getTheta() {	return m_theta;}
 
 BuildMap::BuildMap() {
 	m_GridMap = new GridMap(MAP_WIDTH, MAP_HEIGHT);
@@ -23,13 +20,21 @@ void BuildMap::drawLine(RobotPose RobotPos, double dDist, int nIndex, int nDegre
 	int wall = 0;
 	if (dDist < LASER_DATA_MAX)
 		wall = THICKNESS_OF_WALL / CELL_SIZE;
-	double Theta = RobotPos.getTheta() + (nIndex/ nDegreeResolution)*PI/180;
+	/*
+	double Theta = RobotPos.theta + (nIndex/ nDegreeResolution)*PI/180;
 	double dx = (dDist / CELL_SIZE+ wall)*cos(Theta);
 	double dy = (dDist / CELL_SIZE + wall)*sin(Theta);
 	double dFreeDx = (dDist / CELL_SIZE)*cos(Theta);
 	double dFreeDy = (dDist / CELL_SIZE)*sin(Theta);
-	int x = RobotPos.getX() / CELL_SIZE + MAP_WIDTH / 2;
-	int y = RobotPos.getY() / CELL_SIZE + MAP_HEIGHT / 2;
+	*/
+	double Theta = RobotPos.theta + (nIndex / nDegreeResolution)*PI / 180;
+	double dx = (dDist / CELL_SIZE + wall)*cos(Theta);
+	double dy = (dDist / CELL_SIZE + wall)*sin(Theta);
+	double dFreeDx = (dDist / CELL_SIZE)*cos(Theta);
+	double dFreeDy = (dDist / CELL_SIZE)*sin(Theta);
+
+	int x = RobotPos.x / CELL_SIZE + MAP_WIDTH / 2;
+	int y = RobotPos.y / CELL_SIZE + MAP_HEIGHT / 2;
 	int count = 0;
 
 	// 증가분 정의
@@ -63,7 +68,8 @@ void BuildMap::drawLine(RobotPose RobotPos, double dDist, int nIndex, int nDegre
 			if(dFreeDx > i)
 				map[x][y] = FREE_AREA;
 			else
-				map[x][y] = OCCUPIED_AREA;
+				//if(map[x][y] != FREE_AREA)
+					map[x][y] = OCCUPIED_AREA;
 		}
 	}
 	// 기울기 작을때
@@ -79,13 +85,22 @@ void BuildMap::drawLine(RobotPose RobotPos, double dDist, int nIndex, int nDegre
 			if (dFreeDy > i)
 				map[x][y] = FREE_AREA;
 			else
-				map[x][y] = OCCUPIED_AREA;
+				 //if(map[x][y] != FREE_AREA)
+					map[x][y] = OCCUPIED_AREA;
 		}
 	}
 			
 	m_GridMap->setMap(map);
 }
-
+void BuildMap::clearMap() {
+	m_GridMap->clearMap();
+}
+void BuildMap::saveImgTemp() {
+	m_GridMap->saveMapTemp();
+}
+void BuildMap::getImgTemp() {
+	m_GridMap->getMapTemp();
+}
 // getter, setter
 int ** BuildMap::getMap() { return m_GridMap->getMap(); }
 int BuildMap::getWidth() { return MAP_WIDTH; }

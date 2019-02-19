@@ -5,9 +5,12 @@
 #pragma once
 #include "stdafx.h"
 #include "afxwin.h"
+#include "NavFunction.h"
 
 #define SCREEN_W 1920
 #define SCREEN_H 1080
+
+#define DEGREE_RESOLUTION 4
 
 // CMappingApplicationDlg 대화 상자
 class CMappingApplicationDlg : public CDialogEx
@@ -25,13 +28,12 @@ public:
 	Mat g_imgMap;
 	BuildMap g_mapBuilder;
 	int g_width, g_height;
-	vector<vector<int>> g_landmark; // Landmark
+	list<LandmarkData> g_landmark; // Landmark
+	list<LandmarkData> g_storedLandmark; // Landmark
 	vector<vector<int>> g_nodePoint; // Landmark
 
-	// NAV
-	NAV350Interface * g_NAV350;
-	SOCKET g_sSocket;
-	string g_strIPNav = "192.168.30.100";
+	// NAV Function
+	NavFunction g_navFunc;
 
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
@@ -61,7 +63,22 @@ public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	int getDistanceFromRobot(Mat map, int nDegree, int nDegreeResolution);
 	int* getLaserToImage(int nDegreeResolution);
+	Mat overlayImage(Mat background, Mat foreground, Point2i location);
 
 	Mat map_img;
+	Mat map_temp;
+	Mat landMark_img;
 	CImage cimage_mfc;
+
+	afx_msg void OnBnClickedConnect();
+	afx_msg void OnBnClickedButton6();
+	CButton m_PowerBtn;
+	CButton m_LandMarkBtn;
+	afx_msg void OnBnClickedLandmark();
+	CButton m_SetReflectBtn;
+	afx_msg void OnBnClickedReflector();
+	afx_msg void OnBnClickedMappig();
+	afx_msg void OnBnClickedNavigation();
+	afx_msg void OnStnClickedPicture();
+	afx_msg void OnBnClickedReset();
 };

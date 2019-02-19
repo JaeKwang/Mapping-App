@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "MappingApplication.h"
 #include "MappingApplicationDlg.h"
+#include "NAV350Interface.h"
 #include "afxdialogex.h"
 
 #ifdef _DEBUG
@@ -47,6 +48,9 @@ void CMappingApplicationDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_PICTURE, m_picture);
+	DDX_Control(pDX, IDC_BUTTON6, m_PowerBtn);
+	DDX_Control(pDX, IDC_LANDMARK, m_LandMarkBtn);
+	DDX_Control(pDX, IDC_REFLECTOR, m_SetReflectBtn);
 }
 BEGIN_MESSAGE_MAP(CMappingApplicationDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
@@ -56,6 +60,12 @@ BEGIN_MESSAGE_MAP(CMappingApplicationDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_CANCEL, OnClickedCancel)
 	ON_BN_CLICKED(IDC_SAVE, OnClickedSave)
 	ON_WM_TIMER()
+	ON_BN_CLICKED(IDC_BUTTON6, &CMappingApplicationDlg::OnBnClickedButton6)
+	ON_BN_CLICKED(IDC_LANDMARK, &CMappingApplicationDlg::OnBnClickedLandmark)
+	ON_BN_CLICKED(IDC_REFLECTOR, &CMappingApplicationDlg::OnBnClickedReflector)
+	ON_BN_CLICKED(IDC_NAVIGATION, &CMappingApplicationDlg::OnBnClickedNavigation)
+	ON_STN_CLICKED(IDC_PICTURE, &CMappingApplicationDlg::OnStnClickedPicture)
+	ON_BN_CLICKED(IDC_RESET, &CMappingApplicationDlg::OnBnClickedReset)
 END_MESSAGE_MAP()
 BOOL CMappingApplicationDlg::OnInitDialog()
 {
@@ -64,8 +74,6 @@ BOOL CMappingApplicationDlg::OnInitDialog()
 	// 시스템 메뉴에 "정보..." 메뉴 항목을 추가합니다.
 
 	// IDM_ABOUTBOX는 시스템 명령 범위에 있어야 합니다.
-	ASSERT((IDM_ABOUTBOX & 0xFFF0) == IDM_ABOUTBOX);
-	ASSERT(IDM_ABOUTBOX < 0xF000);
 
 	CMenu* pSysMenu = GetSystemMenu(FALSE);
 	if (pSysMenu != NULL)
@@ -77,7 +85,6 @@ BOOL CMappingApplicationDlg::OnInitDialog()
 		if (!strAboutMenu.IsEmpty())
 		{
 			pSysMenu->AppendMenu(MF_SEPARATOR);
-			pSysMenu->AppendMenu(MF_STRING, IDM_ABOUTBOX, strAboutMenu);
 		}
 	}
 
@@ -93,6 +100,20 @@ BOOL CMappingApplicationDlg::OnInitDialog()
 	g_mapBuilder = BuildMap();
 	g_width = g_mapBuilder.getWidth();
 	g_height = g_mapBuilder.getHeight();
+	g_navFunc = NavFunction();
+
+	ERR_MESSAGE * msg = new ERR_MESSAGE();
+	if (!g_navFunc.connectionNAV350(msg)) {
+		if (*msg == ALREADY_CONNECTED)
+			MessageBox(_T("이미 NAV350과 연결되어있습니다"), _T("Connection"));
+		else if (*msg == LOGIN_FAILED)
+			MessageBox(_T("NAV350과 연결이 실패하였습니다"), _T("Connection"));
+	}
+	else {
+		m_PowerBtn.EnableWindow(TRUE);
+		m_LandMarkBtn.EnableWindow(TRUE);
+		m_SetReflectBtn.EnableWindow(TRUE);
+	}
 
 	SetTimer(1000, 30, NULL);
 
@@ -100,15 +121,7 @@ BOOL CMappingApplicationDlg::OnInitDialog()
 }
 void CMappingApplicationDlg::OnSysCommand(UINT nID, LPARAM lParam)
 {
-	if ((nID & 0xFFF0) == IDM_ABOUTBOX)
-	{
-		CAboutDlg dlgAbout;
-		dlgAbout.DoModal();
-	}
-	else
-	{
 		CDialogEx::OnSysCommand(nID, lParam);
-	}
 }
 void CMappingApplicationDlg::OnPaint()
 {
@@ -142,16 +155,20 @@ void CMappingApplicationDlg::OnDestroy()
 {
 	CDialogEx::OnDestroy();
 	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
+	if (g_navFunc.getNAVMode() != OFF_MODE) {
+		g_navFunc.changeOperationMode(STANDBY_MODE);
+		g_navFunc.changeOperationMode(OFF_MODE);
+	}
 }
 int CMappingApplicationDlg::getDistanceFromRobot(Mat map, int nDegree, int nDegreeResolution) {
 	int cellSize = 50;
 	int width = map.cols;
 	int height = map.rows;
-	double Theta = g_robotPos.getTheta() + (nDegree / nDegreeResolution)*PI / 180;
+	double Theta = g_robotPos.theta + (nDegree / nDegreeResolution)*PI / 180;
 	double dx = (LASER_DATA_MAX / cellSize)*cos(Theta);
 	double dy = (LASER_DATA_MAX / cellSize)*sin(Theta);
-	int x = g_robotPos.getX() / cellSize + width / 2;
-	int y = g_robotPos.getY() / cellSize + height / 2;
+	int x = g_robotPos.x / cellSize + width / 2;
+	int y = g_robotPos.y / cellSize + height / 2;
 	int count = 0;
 
 	int startX = x;
@@ -197,36 +214,44 @@ int CMappingApplicationDlg::getDistanceFromRobot(Mat map, int nDegree, int nDegr
 				return LASER_DATA_MAX;
 			if (map.at<uint8_t>(y, x) == 0)
 				return sqrt((x - startX)*(x - startX) + (y - startY)*(y - startY)) * cellSize;
-			
 		}
 	}
-
 	return 0;
-}
-int* CMappingApplicationDlg::getLaserToImage(int nDegreeResolution) {
-	// Laser센서 배열을 초기화 합니다
-	int * arrLaser = new int[360* nDegreeResolution];
-	for (int i = 0; i < 360 * nDegreeResolution; i++)
-		arrLaser[i] = 0;
-
-	// 영상을 읽어옵니다
-	Mat img = imread("./Map.png", 'r');
-
-	// Robot의 위치로부터 가상의 Laser센서값을 생성합니다
-	for (int i = 0; i < 360 * nDegreeResolution; i++)
-		arrLaser[i] = getDistanceFromRobot(img, i, nDegreeResolution);
-
-	return arrLaser;
 }
 void CMappingApplicationDlg::OnTimer(UINT_PTR nIDEvent)
 {
-	// TODO: 여기에 메시지 처리기 코드를 추가 및/또는 기본값을 호출합니다.
-	// 레이져 데이터를 Image에서 가져옵니다. Test용 입니다.
-	int * arrLaser;
-	int degreeResolution = 4;
-	arrLaser = getLaserToImage(degreeResolution);
-	for (int i = 0; i < 360 * degreeResolution; i++)
-		g_mapBuilder.drawLine(g_robotPos, arrLaser[i], i, degreeResolution);
+	int_1DArray arrLaser;
+	double tempTheta;
+	switch (g_navFunc.getNAVMode()) {
+	case OFF_MODE:
+
+		break;
+	case STANDBY_MODE:
+		break;
+	case LANDMARK_MODE:
+		//g_mapBuilder.clearMap();
+		g_navFunc.LandmarkMode();
+		g_landmark = g_navFunc.getLandmarkData();
+		arrLaser = g_navFunc.getNAVData();
+		//for (int i = 0; i < 360 * DEGREE_RESOLUTION; i++)
+			//g_mapBuilder.drawLine(g_robotPos, arrLaser[i], i, DEGREE_RESOLUTION);
+		break;
+	case MAPPING_MODE:
+		
+		break;
+	case NAVIGATION_MODE:
+		g_navFunc.NavigationMode();
+		tempTheta = g_robotPos.theta;
+		g_navFunc.getRobotPos(&(g_robotPos.x), &(g_robotPos.y), &(g_robotPos.theta));
+		g_landmark = g_navFunc.getLandmarkData();
+		arrLaser = g_navFunc.getNAVData();
+		if (abs(tempTheta - g_robotPos.theta) > 0.1 || g_landmark.size() < 3) break;
+		for (int i = 0; i < 360 * DEGREE_RESOLUTION; i++) {
+			if(arrLaser[i] > 0 && arrLaser[i] < LASER_DATA_MAX)
+				g_mapBuilder.drawLine(g_robotPos, arrLaser[i], i, DEGREE_RESOLUTION);
+		}
+		break;
+	}
 
 	// map -> image map
 	int** map = g_mapBuilder.getMap();
@@ -241,18 +266,38 @@ void CMappingApplicationDlg::OnTimer(UINT_PTR nIDEvent)
 			else if (map[Lx][Ly] == UNKNOWN_AREA)
 				g_imgMap.at<Vec3b>(j, i) = Vec3b(128, 128, 128);
 		}
-
-	// 로봇을 그립니다
-	int x_pos = int(g_robotPos.getX() * SCREEN_W / CELL_SIZE / MAP_WIDTH + SCREEN_W / 2);
-	int y_pos = int(g_robotPos.getY() * SCREEN_H / CELL_SIZE / MAP_HEIGHT + SCREEN_H / 2);
-	circle(g_imgMap, Point(x_pos, y_pos), 10, Scalar(255, 0, 0), -1);
-	line(g_imgMap, Point(x_pos, y_pos), Point(x_pos + int(cos(g_robotPos.getTheta()) * 30), y_pos + int(sin(g_robotPos.getTheta()) * 30)), Scalar(0, 0, 255), 5);
-
-	// 로봇을 움직입니다
-	if (g_bActibate) {
-		g_robotPos.m_x += g_nSpeed*cos(g_robotPos.m_theta);
-		g_robotPos.m_y += g_nSpeed*sin(g_robotPos.m_theta);
+	// LandMark를 그립니다
+	list<LandmarkData> tempLandmark = g_landmark;
+	list<LandmarkData> tempStoredLandmark;
+	while (!tempLandmark.empty()) {
+		int x_L_pos = (g_robotPos.x + cos(g_robotPos.theta)*tempLandmark.front().nX - sin(g_robotPos.theta)*tempLandmark.front().nY)*SCREEN_W / CELL_SIZE / MAP_WIDTH + SCREEN_W / 2;
+		int y_L_pos = (g_robotPos.y + sin(g_robotPos.theta)*tempLandmark.front().nX + cos(g_robotPos.theta)*tempLandmark.front().nY)*SCREEN_H / CELL_SIZE / MAP_HEIGHT + SCREEN_H / 2;
+		tempLandmark.pop_front();
+		cv::circle(g_imgMap, Point(x_L_pos, y_L_pos), 5, Scalar(0, 255, 0), -1);
 	}
+	tempStoredLandmark = g_storedLandmark;
+	while (!tempStoredLandmark.empty()) {
+		int x_L_pos = tempStoredLandmark.front().nX*SCREEN_W / CELL_SIZE / MAP_WIDTH + SCREEN_W / 2;
+		int y_L_pos = tempStoredLandmark.front().nY*SCREEN_H / CELL_SIZE / MAP_HEIGHT + SCREEN_H / 2;
+		tempStoredLandmark.pop_front();
+		cv::line(g_imgMap, Point(x_L_pos-7, y_L_pos - 7), Point(x_L_pos+ 7, y_L_pos + 7), Scalar(0, 0, 255), 3);
+		cv::circle(g_imgMap, Point(x_L_pos, y_L_pos), 7, Scalar(0, 0, 255), 3);
+	}
+	// 로봇을 그립니다
+	int x_pos = int(g_robotPos.x * SCREEN_W / CELL_SIZE / MAP_WIDTH + SCREEN_W / 2);
+	int y_pos = int(g_robotPos.y * SCREEN_H / CELL_SIZE / MAP_HEIGHT + SCREEN_H / 2);
+	cv::circle(g_imgMap, Point(x_pos, y_pos), 10, Scalar(255, 0, 0), -1);
+	cv::line(g_imgMap, Point(x_pos, y_pos), Point(x_pos + int(cos(g_robotPos.theta) * 30), y_pos + int(sin(g_robotPos.theta) * 30)), Scalar(0, 0, 255), 5);
+
+	cv::flip(g_imgMap, g_imgMap, 0);
+
+	// 로봇 위치, 각도 출력
+	string strX = "X pos: " + to_string(g_robotPos.x) +"mm";
+	string strY = "Y pos: " + to_string(g_robotPos.y) + "mm";
+	string strT = "Theta: " + to_string(int(g_robotPos.theta * 180 / PI)) + "deg";
+	cv::putText(g_imgMap, strX, Point(SCREEN_W - 300, 30), 2, 0.8, Scalar::all(0), 1, -1);
+	cv::putText(g_imgMap, strY, Point(SCREEN_W - 300, 60), 2, 0.8, Scalar::all(0), 1, -1);
+	cv::putText(g_imgMap, strT, Point(SCREEN_W - 300, 90), 2, 0.8, Scalar::all(0), 1, -1);
 
 	//화면에 보여주기 위한 처리입니다.
 	int bpp = 8 * g_imgMap.elemSize();
@@ -360,18 +405,20 @@ void CMappingApplicationDlg::OnClickedSave() {
 	imwrite("./citeMap.png", img);
 	
 	ofstream landmarkOut("landmark.txt");
-	ofstream nodeOut("nodepoint.txt");
+	list<LandmarkData> tempLandmark = g_landmark;
 	if (landmarkOut.is_open()) {
-		landmarkOut << g_landmark.size();
-		for (int i = 0; i < g_landmark.size(); i++) {
-			vector<int> line = g_landmark[i];
-			for (int j = 0; j < line.size(); j++) {
-				landmarkOut << line[j];
-				landmarkOut << ", ";
-			}
-			landmarkOut << endl;
+		landmarkOut << tempLandmark.size();
+		landmarkOut << endl;
+		while (!tempLandmark.empty()) {
+			LandmarkData l = tempLandmark.front();
+			landmarkOut << l.nGlobalID << ", ";
+			landmarkOut << l.nX << ", ";
+			landmarkOut << l.nY << endl;
+			tempLandmark.pop_front();
 		}
 	}
+
+	ofstream nodeOut("nodepoint.txt");
 	if (nodeOut.is_open()) {
 		nodeOut << g_nodePoint.size();
 		for (int i = 0; i < g_nodePoint.size(); i++) {
@@ -383,4 +430,127 @@ void CMappingApplicationDlg::OnClickedSave() {
 			nodeOut << endl;
 		}
 	}
+}
+
+void CMappingApplicationDlg::OnBnClickedButton6()
+{
+	if (g_navFunc.getNAVMode() == OFF_MODE) {
+		g_navFunc.changeOperationMode(STANDBY_MODE);
+		m_PowerBtn.SetWindowTextW(_T("PowerDown"));
+	}
+	else {
+		g_navFunc.changeOperationMode(STANDBY_MODE);
+		g_navFunc.changeOperationMode(OFF_MODE);
+		m_PowerBtn.SetWindowTextW(_T("PowerOn"));
+	}
+}
+
+
+void CMappingApplicationDlg::OnBnClickedLandmark()
+{
+	if (g_navFunc.getNAVMode() == LANDMARK_MODE) {
+		MessageBox(_T("이미 LandMark 모드 입니다."), _T("Mode Change"));
+		return;
+	}
+	//g_mapBuilder.saveImgTemp();
+	if(g_navFunc.getNAVMode() != STANDBY_MODE)
+		g_navFunc.changeOperationMode(STANDBY_MODE);
+	g_navFunc.changeOperationMode(LANDMARK_MODE);
+}
+
+
+void CMappingApplicationDlg::OnBnClickedReflector()
+{
+	g_navFunc.setReflector(g_robotPos.x, g_robotPos.y, g_robotPos.theta);
+}
+
+void CMappingApplicationDlg::OnBnClickedNavigation()
+{
+	if (g_storedLandmark.size() < 3) {
+		if (g_landmark.size() < 3)
+			MessageBox(_T("반사봉이 3개이상 보이는 위치에 두세요"), _T("Mode Change"));
+		
+		else {
+			MessageBox(_T("현재 위치를 초기 위치로 설정합니다."), _T("Mode Change"));
+			list<LandmarkData> temp = g_landmark;
+			while (!temp.empty()) {
+				LandmarkData landmark = temp.front();
+				landmark.nGlobalID = g_storedLandmark.size();
+				landmark.nRefType = 2;
+				landmark.nSize = 88;
+				landmark.nLocalID = g_storedLandmark.size();
+				landmark.nLayerID = 1;
+				landmark.nLayersID = 0;
+				g_storedLandmark.push_back(landmark);
+				temp.pop_front();
+			}
+
+			g_navFunc.addLandmark(g_storedLandmark.size(), g_storedLandmark, g_robotPos);
+			if (g_navFunc.getNAVMode() != STANDBY_MODE)
+				g_navFunc.changeOperationMode(STANDBY_MODE);
+			g_navFunc.changeOperationMode(NAVIGATION_MODE);
+		}
+			return;
+	}
+	if (g_navFunc.getNAVMode() == NAVIGATION_MODE) {
+		MessageBox(_T("이미 MapDrawing 모드 입니다."), _T("Mode Change"));
+		return;
+	}
+	if (g_navFunc.getNAVMode() != STANDBY_MODE)
+		g_navFunc.changeOperationMode(STANDBY_MODE);
+	g_navFunc.changeOperationMode(NAVIGATION_MODE);
+	//g_mapBuilder.getImgTemp();
+}
+
+
+void CMappingApplicationDlg::OnStnClickedPicture()
+{
+	POINT cursorPos;
+	GetCursorPos(&cursorPos);
+
+	RECT rect;
+	m_picture.GetWindowRect(&rect);
+
+	int xInImage = (cursorPos.x - rect.left) * SCREEN_W / (rect.right - rect.left);
+	int yInImage = (cursorPos.y - rect.top) * SCREEN_H / (rect.bottom - rect.top);
+	yInImage = SCREEN_H - yInImage;
+	list<LandmarkData> temp = g_landmark;
+	for (int i = 0; i < g_landmark.size(); i++) {
+		LandmarkData landmark = temp.front();
+		int x_pos = (g_robotPos.x + cos(g_robotPos.theta)*landmark.nX - sin(g_robotPos.theta)*landmark.nY) * SCREEN_W / CELL_SIZE / MAP_WIDTH + SCREEN_W / 2;
+		int y_pos = (g_robotPos.y + sin(g_robotPos.theta)*landmark.nX + cos(g_robotPos.theta)*landmark.nY) * SCREEN_H / CELL_SIZE / MAP_HEIGHT + SCREEN_H / 2;
+		double distance =sqrt( pow((x_pos - xInImage), 2) + pow((y_pos - yInImage), 2));
+		if (distance < 5.5)
+			if (IDYES == AfxMessageBox(L"해당 Landmark를 등록하시겠습니까?", MB_YESNO))
+			{
+				landmark.nGlobalID = g_storedLandmark.size();
+				landmark.nRefType = 2;
+				landmark.nSize = 88;
+				landmark.nLocalID = g_storedLandmark.size();
+				landmark.nLayerID = 1;
+				landmark.nLayersID = 0;
+				list<LandmarkData> temp;
+				temp.push_back(landmark);
+				
+				if (g_navFunc.addLandmark(1, temp, g_robotPos)) {
+					landmark.nX += (g_robotPos.x + cos(g_robotPos.theta)*landmark.nX - sin(g_robotPos.theta)*landmark.nY);
+					landmark.nY += (g_robotPos.y + sin(g_robotPos.theta)*landmark.nX + cos(g_robotPos.theta)*landmark.nY);
+					g_storedLandmark.push_back(landmark);
+					return;
+				}
+
+				else
+					AfxMessageBox(L"등록에 실패하였습니다");
+				return;
+			}
+			else return;
+		temp.pop_front();
+	}
+	
+}
+
+
+void CMappingApplicationDlg::OnBnClickedReset()
+{
+	g_navFunc.ResetNAV350();
 }

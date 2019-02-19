@@ -7,7 +7,8 @@
 #define OCCUPIED_AREA 2
 class GridMap {
 private:
-	int **m_Map;
+	int ** m_Map;
+	int ** m_MapTemp;
 	int m_width;
 	int m_height;
 	
@@ -16,6 +17,9 @@ public:
 	int getHeight();
 	int** getMap();
 	void setMap(int ** nMap);
+	void clearMap();
+	void saveMapTemp();
+	void getMapTemp();
 
 	GridMap(int nX, int nY);
 	~GridMap();
